@@ -34,7 +34,7 @@ import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
-public class SortedParallelManager<S, T>{
+public class SortedParallelManager<T,S>{
 	
 	static AtomicInteger tn = new AtomicInteger(0);
 	int threads = 0;
@@ -76,24 +76,24 @@ public class SortedParallelManager<S, T>{
 		return service.isTerminated();
 	}
 	
-	public SortedParallelManager<S,T> setNThreads(int n) {
+	public SortedParallelManager<T,S> setNThreads(int n) {
 		threads = n;
 		return this;
 	}
-	public SortedParallelManager<S,T> setParallelTask(Callable<T> task){
+	public SortedParallelManager<T,S> setParallelTask(Callable<T> task){
 		this.task = task;
 		return this;
 	}
-	public SortedParallelManager<S,T> setIterationCondition(Predicate<S> pred){
+	public SortedParallelManager<T,S> setIterationCondition(Predicate<S> pred){
 		shouldContinue = pred;
 		return this;
 	}
 	
-	public SortedParallelManager<S,T> setOnPostExecute(){
+	public SortedParallelManager<T,S> setOnPostExecute(){
 		return this;
 	} 
 	
-	public SortedParallelManager<S,T> init(){
+	public boolean init(){
 		if (threads != 0){
 		
 			Random rn = new Random();
@@ -103,7 +103,7 @@ public class SortedParallelManager<S, T>{
 			service = Executors.newFixedThreadPool(threads);
 			isConfigured = true;
 		}
-		return this;
+		return isConfigured;
 	}
 	
 	/**
@@ -122,8 +122,7 @@ public class SortedParallelManager<S, T>{
 			UnaryOperator<S> updater) throws Exception{
 		
 		S currentCondition = initialCondition;
-		boolean c = false;
-		while(shouldContinue.test(currentCondition)){
+		while(isConfigured && shouldContinue.test(currentCondition)){
 			//launch threads();
 			ArrayList<Future<T>> futures = new ArrayList<>(threads);
 			
@@ -180,7 +179,7 @@ public class SortedParallelManager<S, T>{
 			
 			// update currentCondition
 			currentCondition = updater.apply(currentCondition);
-			c = shouldContinue.test(currentCondition);
+			
 		}
 	}
 	
@@ -191,8 +190,8 @@ public static void main(String[] args) {
 		
 		
 		// generate 10 thread executor service
-		SortedParallelManager<Integer,Integer[]> cc = new SortedParallelManager<>();
-		cc.setNThreads(10)
+		SortedParallelManager<Integer[],Integer> cc = new SortedParallelManager<>();
+		boolean ii = cc.setNThreads(10)
 		  .setParallelTask(()->cc.call())
 		  .init();
 		// measure the elapsed time
@@ -202,7 +201,7 @@ public static void main(String[] args) {
 		try {
 				
 			cc.iterate(
-					(x)->x<total , 
+					x->x<total , 
 					k, 
 					x-> x + cc.threads);
 			
@@ -228,7 +227,7 @@ public static void main(String[] args) {
 		Queue<Integer[]> results = new LinkedList<>();
 		
 		// generate 10 thread executor service
-		SortedParallelManager<Integer,Integer[]> cc = new SortedParallelManager<>(10, total);
+		SortedParallelManager<Integer[],Integer> cc = new SortedParallelManager<>(10, total);
 		// measure the elapsed time
 		Instant start = Instant.now();
 		// run multiple times this sequence
@@ -309,7 +308,7 @@ public static void main(String[] args) {
 		int i = tn.getAndIncrement(); 
 		try {	
 			// that is, sleep a random number of seconds between 0 and 10
-			Thread.sleep(randnum.get(i));
+			Thread.sleep(randnum.get(i) * 1000);
 			System.out.println("Executed " + i + " sleep " + randnum.get(i) );
 			return new Integer[]{i,randnum.get(i)};
 		} catch (InterruptedException e) { 
